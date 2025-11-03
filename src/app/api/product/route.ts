@@ -1,14 +1,40 @@
-import { BASE_API_URL } from "@/utils/config";
-import axios from "axios";
-import { NextResponse } from "next/server";
+import axiosClient from "@/utils/axiosClient";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(req: Request) {
+export async function GET(req: NextRequest) {
+    const { searchParams } = new URL(req.url);
+    const product_id = searchParams.get("product_id");
+
+    if (!product_id) return NextResponse.json({error: "PRODUCT_ID_REQUIRED"}, {status:400});
+
     try {
-        const data = await req.json();
-        const response = await axios.post(`${BASE_API_URL}/api/web/v1/product`, data);
-        return NextResponse.json(response.data);
+        const res = await axiosClient.get("/product", { params: { product_id } });
+        return NextResponse.json(res.data);
+    } catch(error) {
+        console.error(error);
+        return NextResponse.json({ error: "Failed to fetch product" }, { status:500 }); 
+    }
+}
+
+export async function POST(req: NextRequest) {
+    const body = await req.json();
+
+    try {
+        const res = await axiosClient.post("/product", body);
+        return NextResponse.json(res.data);
     } catch (error) {
         console.error(error);
         return NextResponse.json({ error: "Failed to create product" }, { status: 500 });
+    }
+}
+
+export async function PUT(req: NextRequest) {
+    const body = await req.json();
+    try {
+        const res = await axiosClient.put("/product", body);
+        return NextResponse.json(res.data);
+    } catch (err) {
+        console.error(err);
+        return NextResponse.json({ error: "Failed to update product" }, { status: 500 });
     }
 }

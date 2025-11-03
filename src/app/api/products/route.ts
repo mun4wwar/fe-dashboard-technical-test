@@ -1,13 +1,17 @@
-import { BASE_API_URL } from "@/utils/config";
-import axios from "axios";
-import { NextResponse } from "next/server";
+import axiosClient from "@/utils/axiosClient";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+    const { searchParams } = new URL(req.url);
+    const page = searchParams.get("page") || "1";
+    const limit = searchParams.get("limit") || "10";
+    const search = searchParams.get("search") || "";
+
     try {
-        const response = await axios.get(`${BASE_API_URL}/api/web/v1/products`);
-        return NextResponse.json(response.data);
+        const res = await axiosClient.get("/products", { params: { page, limit, search } });
+        return NextResponse.json(res.data);
     } catch (error) {
         console.error(error);
-        return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
+        return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 });
     }
 }

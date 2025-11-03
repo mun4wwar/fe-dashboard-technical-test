@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import { Table, Button, Input, Space, Typography, Pagination, Image } from "antd";
+import { useCallback, useEffect, useState } from "react";
+import { Table, Button, Input, Space, Typography, Pagination, Image, Spin } from "antd";
 import { SearchOutlined, PlusOutlined } from "@ant-design/icons";
-import axiosClient from "@/utils/axiosClient";
+import axiosClient, { setAuthToken } from "@/utils/axiosClient";
 import ProductModal, { ProductFormValues } from "@/components/ProductModal";
-
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 
 const { Title } = Typography;
 
@@ -20,119 +21,157 @@ interface Product {
 }
 
 export default function ProductsPage() {
+    const { user, getToken } = useAuth()
+    const router = useRouter();
+
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
+    const [total, setTotal] = useState(0);
     const [openModal, setOpenModal] = useState(false);
     const [modalType, setModalType] = useState<"create" | "edit">("create");
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [modalLoading, setModalLoading] = useState(false);
 
-    const fetchProducts = async () => {
+    useEffect(() => {
+        if (user === null) router.push("/login");
+    }, [user, router]);
+
+    const fetchProducts = useCallback(async () => {
+        if (!user) return;
         setLoading(true);
-        try {
-            const res = await axiosClient.get("/products");
-            const list = Array.isArray(res.data)
-                ? res.data
-                : res.data?.data || [];
 
-            setProducts(list);
+        try {
+            const token = await getToken();
+            setAuthToken(token || null);
+
+            const res = await axiosClient.get("/products", {
+                params: { page, limit, search },
+            });
+
+            const data = res.data?.data || [];
+            const pagination = res.data?.pagination || {};
+
+            setProducts(data);
+            setTotal(pagination.total || 0);
         } catch (error) {
-            console.error(error);
+            console.error("Fetch products error:", error);
             setProducts([]);
         } finally {
             setLoading(false);
         }
-    };
+    }, [user, page, limit, search, getToken]);
 
     useEffect(() => {
         fetchProducts();
-    }, []);
+    }, [fetchProducts]);
 
-    const filteredProducts = useMemo(() => {
-        return products.filter((item) => item.product_title?.toLowerCase().includes(search.toLowerCase())
-    );
-    }, [products, search]);
+    const fetchSingleProduct = async (productId: string) => {
+        setModalLoading(true);
+        try {
+            const res = await axiosClient.get("/product", {params: { product_id: productId } });
+            return res.data?.data || null;
+        } catch (error) {
+            console.error("Failed fetching Product: ", error);
+            return null;
+        } finally {
+            setModalLoading(false);
+        }
+    };
 
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedData = filteredProducts.slice(startIndex, endIndex);
-    
-    const handleEdit = (product: Product) => {
-        setSelectedProduct(product);
+    const handleEdit = async (product: Product) => {
+        const fullProduct = await fetchSingleProduct(product.product_id);
+        setSelectedProduct(fullProduct);
         setModalType("edit");
         setOpenModal(true);
-    }
+    };
 
     const handleCreate = () => {
         setSelectedProduct(null);
         setModalType("create");
         setOpenModal(true);
-    }
+    };
+
+    const handleSubmit = async (values: ProductFormValues) => {
+        try {
+        if (modalType === "create") {
+            await axiosClient.post("/product", values);
+        } else if (modalType === "edit" && selectedProduct) {
+            await axiosClient.put("/product", {
+                product_id: selectedProduct.product_id,
+                ...values,
+            });
+        }
+
+        await fetchProducts();
+        setOpenModal(false);
+        } catch (error) {
+        console.error("Failed saving product:", error);
+        }
+    };
+
     const columns = [
         {
-    title: "Image",
-    dataIndex: "product_image",
-    key: "image",
-    render: (url: string) =>
-        url ? (
+        title: "Image",
+        dataIndex: "product_image",
+        key: "image",
+        render: (url: string) =>
+            url ? (
             <Image
-            src={url}
-            alt="product"
-            style={{
+                src={url}
+                alt="product"
+                style={{
                 width: 60,
                 height: 60,
                 objectFit: "cover",
                 borderRadius: 8,
-                boxShadow: "0 0 4px rgba(0,0,0,0.2)"
-            }}
+                boxShadow: "0 0 4px rgba(0,0,0,0.2)",
+                }}
             />
-        ) : (
+            ) : (
             <span style={{ color: "#999" }}>No Image</span>
-        ),
-    },
+            ),
+        },
         { title: "Title", dataIndex: "product_title", key: "title" },
-        { title: "Price", dataIndex: "product_price", key: "price", render: (v: number) => (v ? `Rp. ${v.toLocaleString()}` : "-"),},
+        {
+            title: "Price",
+            dataIndex: "product_price",
+            key: "price",
+            render: (v: number) => (v ? `Rp. ${v.toLocaleString()}` : "-"),
+        },
         { title: "Category", dataIndex: "product_category", key: "category" },
         {
             title: "Description",
             dataIndex: "product_description",
             key: "description",
-            render: (text: string) => (text?.length > 50 ? text.slice(0, 50) + "..." : text)
+            render: (text: string) =>
+                text?.length > 50 ? text.slice(0, 50) + "..." : text,
         },
         {
             title: "Action",
             key: "actions",
             render: (_: unknown, record: Product) => (
                 <Space>
-                    <Button type="link" onClick={() => handleEdit(record)}>Edit</Button>
-                    <Button type="link" danger>Delete</Button>
+                    <Button type="link" onClick={() => handleEdit(record)}>
+                        Edit
+                    </Button>
+                    <Button type="link" danger>
+                        Delete
+                    </Button>
                 </Space>
-            )
+            ),
         },
     ];
 
-    const handleSubmit = async (values: ProductFormValues) => {
-        try { 
-            if (modalType === "create") {
-                await axiosClient.post("/product", values);
-            } else if (modalType === "edit" && selectedProduct) {
-                await axiosClient.put(`/product/${selectedProduct.product_id}`, values);
-            }
-            await fetchProducts();
-            setOpenModal(false);
-        } catch (error) {
-            console.error("Failed saving product: ", error);
-        }
-    }
-
     return (
-    <div style={{ padding: 24 }}>
+        <div style={{ padding: 24 }}>
+            <h1>Welcome, {user?.email}</h1>
         <Title level={3}>Product Management</Title>
 
         <Space style={{ marginBottom: 16 }}>
-        <Input
+            <Input
             placeholder="Search products..."
             prefix={<SearchOutlined />}
             value={search}
@@ -141,14 +180,14 @@ export default function ProductsPage() {
                 setPage(1);
             }}
             allowClear
-        />
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+            />
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
             Add Product
-        </Button>
+            </Button>
         </Space>
 
         <Table
-            dataSource={paginatedData}
+            dataSource={products}
             columns={columns}
             rowKey="product_id"
             loading={loading}
@@ -157,14 +196,15 @@ export default function ProductsPage() {
 
         <Pagination
             current={page}
-            total={filteredProducts.length}
+            total={total}
             pageSize={limit}
             showSizeChanger
             onChange={(p, size) => {
-                setPage(p);
-                setLimit(size);
+            setPage(p);
+            setLimit(size);
             }}
-            style={{ marginTop: 16, textAlign:"right" }} />
+            style={{ marginTop: 16, textAlign: "right" }}
+        />
 
         {openModal && (
             <ProductModal
@@ -175,6 +215,9 @@ export default function ProductsPage() {
             type={modalType}
             />
         )}
+
+
+        {modalLoading && <Spin style={{ position: "absolute", top: "50%", left: "50%" }} />}
         </div>
     );
 }
