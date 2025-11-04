@@ -1,13 +1,12 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Input, Space, Typography, Pagination, Image, Spin } from "antd";
-import { SearchOutlined, PlusOutlined } from "@ant-design/icons";
+import { Table, Button, Input, Space, Pagination, Image, Spin, Tooltip } from "antd";
+import { SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import axiosClient, { setAuthToken } from "@/utils/axiosClient";
 import ProductModal, { ProductFormValues } from "@/components/ProductModal";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
-
-const { Title } = Typography;
+import DashboardLayout from "@/components/DashboardLayout";
 
 interface Product {
     product_id: string;
@@ -154,70 +153,140 @@ export default function ProductsPage() {
             key: "actions",
             render: (_: unknown, record: Product) => (
                 <Space>
-                    <Button type="link" onClick={() => handleEdit(record)}>
-                        Edit
-                    </Button>
-                    <Button type="link" danger>
-                        Delete
-                    </Button>
+                    <Tooltip title="Edit">
+                        <Button type="text" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
+                            Edit
+                        </Button>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                        <Button type="text" icon={<DeleteOutlined />} danger>
+                            Delete
+                        </Button>
+                    </Tooltip>
                 </Space>
             ),
         },
     ];
 
     return (
-        <div style={{ padding: 24 }}>
-            <h1>Welcome, {user?.email}</h1>
-        <Title level={3}>Product Management</Title>
+        <DashboardLayout title="Product Management">
+            <div
+                style={{
+                    background: "#fff",
+                    borderRadius: 16,
+                    padding: 32,
+                    margin: "32px auto",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.05)",
+                    maxWidth: 1500,
+                    transition: "all 0.3s ease"
+                }}
+            >
+                <h1 style={{ textAlign: "center", fontSize: 26, fontWeight: 700, marginTop: 12, marginBottom: 20, letterSpacing: 0.3 }}>
+                        Product Management
+                </h1>
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: 10,
+                        marginBottom: 20,
+                    }}
+                >
+                    <Input
+                        placeholder="Search Products..."
+                        prefix={<SearchOutlined/>}
+                        value={search}
+                        onChange={(e) => {
+                            setSearch(e.target.value);
+                            setPage(1);
+                        }}
+                        allowClear
+                        style={{ width: 300, borderRadius: 8, padding: "6px 12px", transition: "all 0.3s ease" }}
+                        onFocus={(e) =>
+                        (e.target.style.boxShadow = "0 0 0 2px #1677ff30")
+                        }
+                        onBlur={(e) => (e.target.style.boxShadow = "none")}
+                    />
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={handleCreate}
+                        style={{
+                            borderRadius: 8,
+                            fontWeight: 500,
+                            boxShadow: "0 2px 8px rgba(22, 119, 255, 0.25)",
+                            transition: "all 0.3s ease"
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = "translateY(-2px)";
+                            e.currentTarget.style.boxShadow = "0 4px 14px rgba(22,119,255,0.35)";
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = "translateY(0)";
+                            e.currentTarget.style.boxShadow = "0 2px 8px rgba(22,119,255,0.25)";
+                        }}
+                    >
+                        Add Product
+                    </Button>
+                </div>
+                <Table
+                    dataSource={products}
+                    columns={columns}
+                    rowKey="product_id"
+                    loading={loading}
+                    pagination={false}
+                    style={{
+                        borderRadius: 10,
+                        overflow: "hidden",
+                        transition: "all 0.3s ease"
+                    }}
+                    rowClassName={() =>
+                        "custom-row"
+                    }
+                />
 
-        <Space style={{ marginBottom: 16 }}>
-            <Input
-            placeholder="Search products..."
-            prefix={<SearchOutlined />}
-            value={search}
-            onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-            }}
-            allowClear
-            />
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-            Add Product
-            </Button>
-        </Space>
+                <Pagination
+                    current={page}
+                    total={total}
+                    pageSize={limit}
+                    showSizeChanger
+                    onChange={(p, size) => {
+                        setPage(p);
+                        setLimit(size);
+                    }}
+                    style={{ marginTop: 20, textAlign: "right" }}
+                />
 
-        <Table
-            dataSource={products}
-            columns={columns}
-            rowKey="product_id"
-            loading={loading}
-            pagination={false}
-        />
-
-        <Pagination
-            current={page}
-            total={total}
-            pageSize={limit}
-            showSizeChanger
-            onChange={(p, size) => {
-            setPage(p);
-            setLimit(size);
-            }}
-            style={{ marginTop: 16, textAlign: "right" }}
-        />
-
-        {openModal && (
-            <ProductModal
-            open={openModal}
-            onCancel={() => setOpenModal(false)}
-            onSubmit={handleSubmit}
-            initialValues={selectedProduct ?? undefined}
-            type={modalType}
-            />
-        )}
+                {openModal && (
+                    <ProductModal
+                    open={openModal}
+                    onCancel={() => setOpenModal(false)}
+                    onSubmit={handleSubmit}
+                    initialValues={selectedProduct ?? undefined}
+                    type={modalType}
+                    />
+                )}
 
 
-        {modalLoading && <Spin style={{ position: "absolute", top: "50%", left: "50%" }} />}
-        </div>
+                {modalLoading && (
+                    <Spin 
+                        style={{ 
+                            position: "absolute",
+                            top: "50%",
+                            left: "50%",
+                            transform: "translate(-50%, -50%)",
+                        }}
+                    />
+                )}
+            </div>
+            <style jsx global>{`
+                .custom-row:hover {
+                    background-color: #f7faff
+                    transition: background-color 0.3 ease;
+                }
+            `}</style>
+        </DashboardLayout>
     );
 }

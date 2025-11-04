@@ -1,10 +1,10 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Input, Button, Form, Typography, message } from "antd";
+import { Input, Button, Form, Typography, message, Card } from "antd";
 import { useAuth } from "@/context/AuthContext";
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 export default function LoginPage() {
     const { login } = useAuth();
@@ -26,31 +26,52 @@ export default function LoginPage() {
     };
 
     return (
-        <div style={{ maxWidth: 400, margin: "50px auto" }}>
-        <Title level={3}>Login</Title>
-        <Form layout="vertical" onFinish={onFinish}>
-            <Form.Item
-            label="Email"
-            name="email"
-            rules={[{ required: true, message: "Email wajib diisi" }]}
+        <div
+            style={{
+                minHeight: "100vh",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                background: "linear-gradient(135deg, #001529, #000000)",
+            }}
+        >
+            <Card
+                style={{
+                    width:480,
+                    boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
+                    borderRadius: 12
+                }}
             >
-            <Input type="email" />
-            </Form.Item>
+                <div style={{ textAlign: "center", marginBottom: 30 }}>
+                    <Title level={3} style={{ marginBottom:0 }}>
+                        Login
+                    </Title>
+                    <Text type= "secondary">Please Enter Your Credentials</Text>
+                </div>
+                <Form layout="vertical" onFinish={onFinish}>
+                    <Form.Item
+                    label="Email"
+                    name="email"
+                    rules={[{ required: true, message: "Email wajib diisi" }]}
+                    >
+                    <Input type="email" placeholder="youremail@xmaple.com" />
+                    </Form.Item>
 
-            <Form.Item
-            label="Password"
-            name="password"
-            rules={[{ required: true, message: "Password wajib diisi" }]}
-            >
-            <Input.Password placeholder="********" />
-            </Form.Item>
+                    <Form.Item
+                    label="Password"
+                    name="password"
+                    rules={[{ required: true, message: "Password wajib diisi" }]}
+                    >
+                    <Input.Password placeholder="********" />
+                    </Form.Item>
 
-            <Form.Item>
-            <Button type="primary" htmlType="submit" loading={loading} block>
-                Login
-            </Button>
-            </Form.Item>
-        </Form>
+                    <Form.Item>
+                    <Button type="primary" htmlType="submit" loading={loading} block size="large">
+                        Login
+                    </Button>
+                    </Form.Item>
+                </Form>
+            </Card>
         </div>
     );
 }
